@@ -159,6 +159,18 @@
     },
   ];
 
+  // ── 战役：8 关，难度递进（easy → normal → hard）──
+  D.CAMPAIGN = [
+    { name: '平原初战', map: 'plain', level: 'easy', brief: '开阔平原，熟悉二打一集火' },
+    { name: '林间伏击', map: 'forest', level: 'easy', brief: '森林免伤，学会藏身林中' },
+    { name: '断河之战', map: 'river', level: 'normal', brief: '河流横贯，争夺两处浅滩' },
+    { name: '双城巷战', map: 'alleys', level: 'normal', brief: '街区密布，占城者免于集火' },
+    { name: '山地隘口', map: 'mountain', level: 'normal', brief: '山地封锁中线，争夺隘口' },
+    { name: '纵贯河道', map: 'channel', level: 'hard', brief: '蛇形河道，绕行与渡口是关键' },
+    { name: '双峰夹道', map: 'twinpeaks', level: 'hard', brief: '中路林间隘口，寸土必争' },
+    { name: '决战混合战场', map: 'mixed', level: 'hard', brief: '山川河流城市俱全，终极考验' },
+  ];
+
   // ── 界面文字（源语言中文；IFI18n.t 取用）──
   D.TEXT = {
     'game.title': '铁甲夹击',

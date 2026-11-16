@@ -21,6 +21,7 @@
     <div class="menu-btns">
       <button id="btnPve" class="pbtn primary">开始对战<span class="sub">单人 · 人机对战（你执蓝方）</span></button>
       <button id="btnPvp" class="pbtn blue">双人对战<span class="sub">本地双人 · 红蓝轮流操作</span></button>
+      <button id="btnCampaign" class="pbtn green">战役模式<span class="sub" id="campaignSub">8 关挑战 · 难度递进</span></button>
       <button id="btnRules" class="pbtn">规则说明<span class="sub">玩法、集火、地形与技能</span></button>
     </div>
 
@@ -45,6 +46,16 @@
     <button id="soundToggleMenu" class="pbtn ghost" style="margin-top:12px">🔊 音效：开</button>
 
     <p class="credit">架构借鉴 CocoSgt《潮汐战线》(MIT) · 像素美术原创<br>字体 Fusion Pixel (SIL OFL 1.1)</p>
+  </section>
+
+  <!-- 战役选关 -->
+  <section id="screen-campaign" class="screen">
+    <div class="campaign-head">
+      <h2>战役模式</h2>
+      <p id="campaignProgress"></p>
+    </div>
+    <div id="campaignList" class="campaign-list"></div>
+    <button id="campaignBackBtn" class="pbtn" style="margin-top:14px">回标题</button>
   </section>
 
   <!-- 对战 -->
@@ -80,6 +91,8 @@
       <div class="stat-card" id="statCard"></div>
       <div class="result-btns">
         <button id="againBtn" class="pbtn primary">再来一局</button>
+        <button id="nextLevelBtn" class="pbtn primary" style="display:none">下一关</button>
+        <button id="campaignBtn" class="pbtn" style="display:none">返回战役</button>
         <button id="homeBtn" class="pbtn">回标题</button>
       </div>
     </div>

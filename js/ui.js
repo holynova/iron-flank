@@ -11,6 +11,7 @@
 
   var app = {
     mode: 'pve', level: 'normal', mapIndex: 0,
+    campaign: null, // 战役关卡序号（0 起），非战役为 null
     state: null, dice: null,
     selected: null, path: [], targets: [],
     killCells: [], armorCells: [], lastMove: null,
@@ -27,11 +28,57 @@
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
 
   function showScreen(name) {
-    ['menu', 'game', 'result'].forEach(function (n) {
+    ['menu', 'campaign', 'game', 'result'].forEach(function (n) {
       $('screen-' + n).classList.toggle('active', n === name);
     });
-    if (name === 'menu') drawMenuArt();
+    if (name === 'menu') { drawMenuArt(); updateCampaignSub(); }
+    if (name === 'campaign') renderCampaignList();
     if (name === 'game') renderAll();
+  }
+
+  // ── 战役模式 ──
+  var CAMPAIGN_KEY = 'if_campaign';
+  var LEVEL_NAMES = { easy: '新手', normal: '普通', hard: '高手' };
+  function campaignCompleted() {
+    try {
+      var n = parseInt(localStorage.getItem(CAMPAIGN_KEY), 10);
+      return isNaN(n) ? 0 : Math.max(0, Math.min(D.CAMPAIGN.length, n));
+    } catch (e) { return 0; }
+  }
+  function campaignComplete(levelIdx) {
+    var done = Math.max(campaignCompleted(), levelIdx + 1);
+    try { localStorage.setItem(CAMPAIGN_KEY, String(done)); } catch (e) {}
+    return done;
+  }
+  function updateCampaignSub() {
+    $('campaignSub').textContent = '已通关 ' + campaignCompleted() + '/' + D.CAMPAIGN.length + ' 关';
+  }
+  function renderCampaignList() {
+    var done = campaignCompleted();
+    $('campaignProgress').textContent = '已通关 ' + done + ' / ' + D.CAMPAIGN.length + ' 关 · 通关解锁下一关';
+    $('campaignList').innerHTML = D.CAMPAIGN.map(function (lv, i) {
+      var locked = i > done;
+      var isDone = i < done;
+      var map = C.mapById(lv.map);
+      var cls = 'camp-card' + (locked ? ' locked' : '') + (isDone ? ' done' : '');
+      var state = locked ? '🔒' : (isDone ? '✓' : '▶');
+      return '<button class="' + cls + '" data-level="' + i + '"' + (locked ? ' disabled' : '') + '>' +
+        '<span class="camp-num">' + (i + 1) + '</span>' +
+        '<span class="camp-info"><span class="camp-name">' + esc(lv.name) + '</span>' +
+        '<span class="camp-meta">' + esc(map.name) + ' · ' + LEVEL_NAMES[lv.level] + '</span>' +
+        '<span class="camp-brief">' + esc(lv.brief) + '</span></span>' +
+        '<span class="camp-state">' + state + '</span></button>';
+    }).join('');
+  }
+  function startCampaignLevel(i) {
+    var lv = D.CAMPAIGN[i];
+    app.campaign = i;
+    app.mode = 'pve';
+    app.level = lv.level;
+    var mi = 0;
+    D.MAPS.forEach(function (m, idx) { if (m.id === lv.map) mi = idx; });
+    app.mapIndex = mi;
+    newGame('pve');
   }
 
   // ── 战报 ──
@@ -427,6 +474,10 @@
     $('diceOverlay').classList.remove('show');
     var s = app.state;
     C.startGame(s, app.dice);
+    if (app.campaign !== null) {
+      var lv = D.CAMPAIGN[app.campaign];
+      addLog('⚔️ 战役第 ' + (app.campaign + 1) + ' 关：' + esc(lv.name) + '（' + LEVEL_NAMES[lv.level] + '）');
+    }
     addLog('🎲 掷骰：红 ' + app.dice.red + ' 点，蓝 ' + app.dice.blue + ' 点，' + sideName(app.dice.first) + '先手');
     setHint('点选一辆己方坦克');
     renderAll();
@@ -477,13 +528,32 @@
       title = sideName(s.winner) + '获胜！';
       sub = '敌方只剩 1 辆坦克';
     }
+    // 战役结算：胜则解锁下一关
+    var isCamp = app.campaign !== null;
+    var campWon = isCamp && s.winner === app.humanSide;
+    if (isCamp) {
+      var lv = D.CAMPAIGN[app.campaign];
+      if (campWon) {
+        campaignComplete(app.campaign);
+        if (app.campaign >= D.CAMPAIGN.length - 1) {
+          title = '全部通关！';
+          sub = D.CAMPAIGN.length + ' 关全部完成，你是铁甲指挥官！';
+        } else {
+          title = '第 ' + (app.campaign + 1) + ' 关通过！';
+          sub = '下一关已解锁：' + D.CAMPAIGN[app.campaign + 1].name;
+        }
+      } else {
+        sub = '第 ' + (app.campaign + 1) + ' 关「' + lv.name + '」挑战失败，再试一次吧';
+      }
+    }
     $('resultTitle').textContent = title;
     $('resultSub').textContent = sub;
     if (s.winner === null) sfx('draw');
     else if (app.mode === 'pve') sfx(s.winner === app.humanSide ? 'win' : 'lose');
     else sfx('win');
     var rows = [
-      ['对局模式', app.mode === 'pve' ? '人机对战 · ' + ({ easy: '新手', normal: '普通', hard: '高手' }[app.level]) : '双人对战'],
+      ['对局模式', isCamp ? '战役 · 第 ' + (app.campaign + 1) + ' 关 ' + D.CAMPAIGN[app.campaign].name
+        : (app.mode === 'pve' ? '人机对战 · ' + LEVEL_NAMES[app.level] : '双人对战')],
       ['地图', esc(app.stats.mapName)],
       ['回合数', Math.min(s.round, D.MAX_ROUNDS) + ' 回合'],
       ['总步数', app.stats.moves + ' 步'],
@@ -495,6 +565,20 @@
     $('statCard').innerHTML = rows.map(function (r) {
       return '<div class="stat-row"><span>' + r[0] + '</span><span class="v">' + r[1] + '</span></div>';
     }).join('');
+    // 结算按钮：战役模式显示下一关/返回战役
+    var again = $('againBtn'), next = $('nextLevelBtn'), camp = $('campaignBtn');
+    if (isCamp) {
+      camp.style.display = '';
+      if (campWon && app.campaign < D.CAMPAIGN.length - 1) {
+        next.style.display = ''; again.style.display = 'none';
+      } else {
+        next.style.display = 'none'; again.style.display = '';
+        again.textContent = '再试一次';
+      }
+    } else {
+      next.style.display = 'none'; camp.style.display = 'none'; again.style.display = '';
+      again.textContent = '再来一局';
+    }
     showScreen('result');
   }
 
@@ -550,8 +634,20 @@
     $('soundToggleMenu').addEventListener('click', toggleSound);
     $('soundToggleGame').addEventListener('click', toggleSound);
     updateSoundBtns();
-    $('btnPve').addEventListener('click', function () { newGame('pve'); });
-    $('btnPvp').addEventListener('click', function () { newGame('pvp'); });
+    $('btnPve').addEventListener('click', function () { app.campaign = null; newGame('pve'); });
+    $('btnPvp').addEventListener('click', function () { app.campaign = null; newGame('pvp'); });
+    $('btnCampaign').addEventListener('click', function () { sfx('click'); showScreen('campaign'); });
+    $('campaignBackBtn').addEventListener('click', function () { showScreen('menu'); });
+    $('campaignList').addEventListener('click', function (e) {
+      var card = e.target.closest('.camp-card');
+      if (!card || card.disabled) return;
+      sfx('click');
+      startCampaignLevel(parseInt(card.getAttribute('data-level'), 10));
+    });
+    $('nextLevelBtn').addEventListener('click', function () {
+      if (app.campaign !== null && app.campaign < D.CAMPAIGN.length - 1) startCampaignLevel(app.campaign + 1);
+    });
+    $('campaignBtn').addEventListener('click', function () { showScreen('campaign'); });
     $('btnRules').addEventListener('click', function () { $('rulesOverlay').classList.add('show'); });
     $('rulesCloseBtn').addEventListener('click', function () { $('rulesOverlay').classList.remove('show'); });
     $('rulesOverlay').addEventListener('click', function (e) {
@@ -602,6 +698,7 @@
 
   bind();
   drawMenuArt();
+  updateCampaignSub();
 
   // 测试钩子（Playwright 用）
   window.IFUI = app;

@@ -455,6 +455,27 @@ test('回合上限：坦克与击杀均相同判平局', function () {
   eq(s.winner, null, '平局');
   eq(s.endReason, 'roundLimit', '结束原因');
 });
+console.log('== 战役 ==');
+test('战役共 8 关', function () {
+  eq(D.CAMPAIGN.length, 8, '关卡数');
+});
+test('每关地图与难度合法', function () {
+  D.CAMPAIGN.forEach(function (lv, i) {
+    ok(C.mapById(lv.map), '第 ' + (i + 1) + ' 关地图 ' + lv.map + ' 存在');
+    ok(['easy', 'normal', 'hard'].indexOf(lv.level) >= 0, '第 ' + (i + 1) + ' 关难度合法');
+    ok(lv.name && lv.brief, '第 ' + (i + 1) + ' 关有名称与简介');
+  });
+});
+test('战役难度递进（不减）', function () {
+  const rank = { easy: 0, normal: 1, hard: 2 };
+  for (let i = 1; i < D.CAMPAIGN.length; i++) {
+    ok(rank[D.CAMPAIGN[i].level] >= rank[D.CAMPAIGN[i - 1].level], '第 ' + (i + 1) + ' 关难度不应低于上一关');
+  }
+});
+test('首关新手、末关高手', function () {
+  eq(D.CAMPAIGN[0].level, 'easy', '首关难度');
+  eq(D.CAMPAIGN[D.CAMPAIGN.length - 1].level, 'hard', '末关难度');
+});
 test('回合上限边界：第 100 回合未结束', function () {
   const s = mkLateGame(2, 2, [0, 0], 99);
   blueCornerMove(s);
