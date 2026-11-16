@@ -3,7 +3,11 @@
 (function () {
   'use strict';
   var D = window.IFData, C = window.IFCore, AI = window.IFAI, R = window.IFRender;
+  var SFX = window.IFSfx;
   var $ = function (id) { return document.getElementById(id); };
+
+  // 音效调用守卫（sfx.js 未加载 / 浏览器不支持时静默跳过）
+  function sfx(name) { if (SFX && typeof SFX[name] === 'function') { try { SFX[name](); } catch (e) {} } }
 
   var app = {
     mode: 'pve', level: 'normal', mapIndex: 0,
@@ -76,16 +80,76 @@
 
   function setHint(html) { $('hint').innerHTML = html; }
 
-  function renderAll() {
+  // extra：动画附加视图（moving / explosions / skillFlash / pulseT）
+  function renderAll(extra) {
     if (!app.state) return;
     renderTop();
-    R.drawBoard($('board'), app.state, {
+    var view = {
       selected: app.selected ? { x: app.selected.x, y: app.selected.y } : null,
       targets: app.targets,
       killCells: app.killCells,
       armorCells: app.armorCells,
       lastMove: app.lastMove,
+    };
+    if (extra) for (var k in extra) view[k] = extra[k];
+    R.drawBoard($('board'), app.state, view);
+  }
+
+  // ── 动画 ──
+  function animateFrame(draw, dur) {
+    return new Promise(function (resolve) {
+      var t0 = performance.now();
+      function frame(now) {
+        // rAF 时间戳可能略早于 t0（帧开始时间），需双向钳制，否则 t<0 会导致插值越界
+        var t = Math.max(0, Math.min(1, (now - t0) / dur));
+        draw(t);
+        if (t < 1) requestAnimationFrame(frame);
+        else resolve();
+      }
+      requestAnimationFrame(frame);
     });
+  }
+  // 移动动画：沿 path 插值（每步 180ms）
+  function playMoveAnim(unit, path) {
+    if (!path || !path.length) { console.error('[anim] empty path for unit', unit && unit.id); return Promise.resolve(); }
+    var pts = [{ x: unit.x, y: unit.y }].concat(path);
+    return animateFrame(function (t) {
+      var seg = Math.min(path.length - 1, Math.floor(t * path.length));
+      var lt = t * path.length - seg;
+      var a = pts[seg], b = pts[seg + 1];
+      renderAll({
+        moving: {
+          unitId: unit.id, type: unit.type, side: unit.side,
+          fx: a.x + (b.x - a.x) * lt, fy: a.y + (b.y - a.y) * lt,
+        },
+      });
+    }, 180 * path.length);
+  }
+  // 击毁爆炸动画（cells: [{x,y}]，500ms）
+  function playExplosionAnim(cells) {
+    if (!cells || !cells.length) return Promise.resolve();
+    return animateFrame(function (t) {
+      renderAll({ explosions: cells.map(function (c) { return { x: c.x, y: c.y, t: t }; }) });
+    }, 500);
+  }
+  // 技能闪光动画（500ms）
+  function playSkillAnim(side) {
+    return animateFrame(function (t) {
+      renderAll({ skillFlash: { side: side, t: t } });
+    }, 500);
+  }
+  // 集火预览准星呼吸脉冲（选中且有击杀预览时持续）
+  var pulseRAF = null;
+  function startPulse() {
+    if (pulseRAF) return;
+    (function loop() {
+      if (!app.selected || !app.killCells.length) { pulseRAF = null; return; }
+      renderAll({ pulseT: (Date.now() % 900) / 900 });
+      pulseRAF = requestAnimationFrame(loop);
+    })();
+  }
+  function stopPulse() {
+    if (pulseRAF) { cancelAnimationFrame(pulseRAF); pulseRAF = null; }
   }
 
   // ── 选子与移动 ──
@@ -127,10 +191,13 @@
       setHint('点选高亮格移动；轻型坦克可再走一步');
     }
     $('stopBtn').classList.remove('show');
+    sfx('click');
+    if (app.killCells.length) startPulse();
     renderAll();
   }
 
   function clearSelection() {
+    stopPulse();
     app.selected = null;
     app.path = [];
     app.targets = [];
@@ -198,21 +265,47 @@
     });
   }
 
+  // 执行一步：模拟 → 移动动画 → 真实落子 → 爆炸动画 → 渲染。返回 Promise<ev|null>。
+  function executeMove(unitId, path) {
+    var s = app.state;
+    var unit = C.unitById(s, unitId);
+    var sim = C.simulate(s, unitId, path);
+    if (sim.events.error || !unit) return Promise.resolve(null);
+    stopPulse();
+    sfx('move');
+    return playMoveAnim(unit, path).then(function () {
+      var ev = C.applyMove(s, unitId, path);
+      app.stats.moves++;
+      app.stats.kills[ev.side] += (ev.kills || []).length;
+      app.lastMove = { from: ev.from, to: ev.to };
+      app.passStreak = 0;
+      logMove(ev);
+      var cells = [];
+      (ev.kills || []).concat(ev.armorLost || []).forEach(function (id) {
+        var v = C.unitById(s, id);
+        if (v) cells.push({ x: v.x, y: v.y });
+      });
+      if (ev.kills && ev.kills.length) sfx('kill');
+      else if (ev.armorLost && ev.armorLost.length) sfx('armor');
+      return playExplosionAnim(cells).then(function () {
+        renderAll();
+        return ev;
+      });
+    });
+  }
+
   function doMove(path) {
     var s = app.state;
     var unitId = app.selected.id;
-    var ev = C.applyMove(s, unitId, path);
-    if (ev.error) { setHint('这步走不了，请重选'); return; }
-    app.stats.moves++;
-    app.stats.kills[ev.side] += (ev.kills || []).length;
-    app.lastMove = { from: ev.from, to: ev.to };
-    app.passStreak = 0;
-    logMove(ev);
     clearSelection();
     setHint('点选一辆己方坦克');
-    renderAll();
-    if (s.phase === 'over') { setTimeout(showResult, 700); return; }
-    postTurn();
+    app.busy = true;
+    executeMove(unitId, path).then(function (ev) {
+      app.busy = false;
+      if (!ev) { setHint('这步走不了，请重选'); renderAll(); return; }
+      if (s.phase === 'over') { setTimeout(showResult, 700); return; }
+      postTurn();
+    });
   }
 
   // 回合交接：处理无路可走（连跳两次 = 平局）与 AI 行动
@@ -245,37 +338,39 @@
       var s = app.state;
       if (!s || s.phase !== 'move') { app.busy = false; return; }
       var side = s.turn;
+      var afterSkill = Promise.resolve();
       if (AI.shouldFireSkill(s, side, app.level)) {
         C.fireSkill(s, side);
         app.stats.skills[side]++;
         var sk = D.SKILLS[D.SIDES[side].skill];
         addLog('✨ ' + sideName(side) + ' 释放「' + sk.name + '」：' + sk.desc, 'ls');
+        sfx('skill');
+        afterSkill = playSkillAnim(side);
       }
-      var mv = AI.aiNext(s, app.level);
-      app.busy = false;
-      if (!mv) {
-        C.passTurn(s);
-        addLog(sideName(side) + ' 无路可走，跳过回合');
-        renderAll();
-        postTurn();
-        return;
-      }
-      var ev = C.applyMove(s, mv.unitId, mv.path);
-      if (ev.error) { // 不应发生：防御性跳过
-        C.passTurn(s);
-        renderAll();
-        postTurn();
-        return;
-      }
-      app.stats.moves++;
-      app.stats.kills[side] += (ev.kills || []).length;
-      app.lastMove = { from: ev.from, to: ev.to };
-      app.passStreak = 0;
-      logMove(ev);
-      setHint('点选一辆己方坦克');
-      renderAll();
-      if (s.phase === 'over') { setTimeout(showResult, 700); return; }
-      postTurn();
+      afterSkill.then(function () {
+        if (!s || s.phase !== 'move') { app.busy = false; return; }
+        var mv = AI.aiNext(s, app.level);
+        if (!mv) {
+          app.busy = false;
+          C.passTurn(s);
+          addLog(sideName(side) + ' 无路可走，跳过回合');
+          renderAll();
+          postTurn();
+          return;
+        }
+        executeMove(mv.unitId, mv.path).then(function (ev) {
+          app.busy = false;
+          if (!ev) { // 不应发生：防御性跳过
+            C.passTurn(s);
+            renderAll();
+            postTurn();
+            return;
+          }
+          setHint('点选一辆己方坦克');
+          if (s.phase === 'over') { setTimeout(showResult, 700); return; }
+          postTurn();
+        });
+      });
     }, 650);
   }
 
@@ -289,7 +384,8 @@
     app.stats.skills[side]++;
     var sk = D.SKILLS[D.SIDES[side].skill];
     addLog('✨ ' + sideName(side) + ' 释放「' + sk.name + '」：' + sk.desc, 'ls');
-    renderAll();
+    sfx('skill');
+    playSkillAnim(side).then(renderAll);
   }
 
   // ── 掷骰 ──
@@ -309,6 +405,7 @@
   }
   function rollDice() {
     $('diceRollBtn').disabled = true;
+    sfx('dice');
     var n = 0;
     var iv = setInterval(function () {
       drawDie($('dieRed'), 1 + Math.floor(Math.random() * 6));
@@ -368,6 +465,9 @@
     }
     $('resultTitle').textContent = title;
     $('resultSub').textContent = sub;
+    if (s.winner === null) sfx('draw');
+    else if (app.mode === 'pve') sfx(s.winner === app.humanSide ? 'win' : 'lose');
+    else sfx('win');
     var rows = [
       ['对局模式', app.mode === 'pve' ? '人机对战 · ' + ({ easy: '新手', normal: '普通', hard: '高手' }[app.level]) : '双人对战'],
       ['地图', esc(app.stats.mapName)],
@@ -419,7 +519,23 @@
     R.drawMapPreview($('mapPreview'), m.id);
   }
 
+  // ── 音效开关 ──
+  function updateSoundBtns() {
+    var on = SFX ? SFX.isEnabled() : true;
+    var m = $('soundToggleMenu'), g = $('soundToggleGame');
+    if (m) m.textContent = on ? '🔊 音效：开' : '🔇 音效：关';
+    if (g) g.textContent = on ? '🔊' : '🔇';
+  }
+  function toggleSound() {
+    if (SFX) SFX.toggle();
+    updateSoundBtns();
+    if (SFX && SFX.isEnabled()) sfx('click');
+  }
+
   function bind() {
+    $('soundToggleMenu').addEventListener('click', toggleSound);
+    $('soundToggleGame').addEventListener('click', toggleSound);
+    updateSoundBtns();
     $('btnPve').addEventListener('click', function () { newGame('pve'); });
     $('btnPvp').addEventListener('click', function () { newGame('pvp'); });
     $('btnRules').addEventListener('click', function () { $('rulesOverlay').classList.add('show'); });

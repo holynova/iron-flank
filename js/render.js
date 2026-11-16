@@ -180,9 +180,10 @@
       ctx.strokeStyle = '#f0a81d';
       ctx.stroke();
     });
-    // 预览击杀：红准星；破甲：橙准星
+    // 预览击杀：红准星；破甲：橙准星（pulseT 存在时呼吸缩放）
+    var pulse = view.pulseT != null ? 1 + 0.14 * Math.sin(view.pulseT * Math.PI * 2) : 1;
     function crosshair(cell, col) {
-      var cx = (cell.x + 0.5) * ts, cy = (cell.y + 0.5) * ts, r = ts * 0.34;
+      var cx = (cell.x + 0.5) * ts, cy = (cell.y + 0.5) * ts, r = ts * 0.34 * pulse;
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.lineWidth = Math.max(2.5, ts / 12);
@@ -208,7 +209,9 @@
     }
 
     // 单位（居中绘制，轻 / 中 / 重尺寸区分明显）
-    var units = state.units.filter(function (x) { return x.alive; })
+    // 移动动画中的单位跳过常规绘制，改由 view.moving 在插值位置绘制。
+    var movingId = view.moving ? view.moving.unitId : -1;
+    var units = state.units.filter(function (x) { return x.alive && x.id !== movingId; })
       .sort(function (a, b) { return a.y - b.y || a.x - b.x; });
     units.forEach(function (unit) {
       var art = D.UNITS[unit.type].art;
@@ -242,6 +245,55 @@
         ctx.lineWidth = Math.max(1, ts / 30);
         ctx.strokeStyle = OUTLINE;
         ctx.stroke();
+      }
+    });
+
+    // 移动动画：移动中的坦克画在插值位置（fx/fy 为浮点格坐标）
+    if (view.moving) {
+      var mu = view.moving;
+      var mcv = unitCanvas(D.UNITS[mu.type].art, D.SIDES[mu.side].owner);
+      var mw = ts * (SP.SCALE_IN_CELL[mu.type] || 0.86);
+      ctx.drawImage(mcv, (mu.fx + 0.5) * ts - mw / 2, (mu.fy + 0.5) * ts - mw / 2, mw, mw);
+    }
+
+    // 技能闪光：该方所有坦克外扩一圈脉冲光环
+    if (view.skillFlash) {
+      var sf = view.skillFlash;
+      var flashCol = sf.side === 0 ? '125,211,252' : '252,160,136';
+      var ringR = ts * (0.42 + 0.14 * Math.sin(sf.t * Math.PI * 2));
+      state.units.filter(function (x) { return x.alive && x.side === sf.side; }).forEach(function (u) {
+        ctx.beginPath();
+        ctx.arc((u.x + 0.5) * ts, (u.y + 0.5) * ts, ringR, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(' + flashCol + ',' + (0.5 * (1 - sf.t)) + ')';
+        ctx.fill();
+        ctx.lineWidth = Math.max(2, ts / 16);
+        ctx.strokeStyle = 'rgba(' + flashCol + ',0.9)';
+        ctx.stroke();
+      });
+    }
+
+    // 击毁爆炸：扩散火球 + 8 向飞散粒子（t: 0→1）
+    (view.explosions || []).forEach(function (ex) {
+      var cx = (ex.x + 0.5) * ts, cy = (ex.y + 0.5) * ts;
+      var t = ex.t;
+      var outer = ts * (0.15 + 0.45 * t);
+      ctx.beginPath();
+      ctx.arc(cx, cy, outer, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(224,32,32,' + (0.85 * (1 - t)) + ')';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx, cy, outer * 0.66, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(248,138,29,' + (0.95 * (1 - t)) + ')';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx, cy, outer * 0.36, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,240,150,' + (1 - t) + ')';
+      ctx.fill();
+      for (var p = 0; p < 8; p++) {
+        var ang = (p / 8) * Math.PI * 2 + ex.x;
+        var dist = ts * (0.2 + 0.55 * t) * (0.7 + 0.3 * ((p * 7 + ex.y) % 3) / 2);
+        ctx.fillStyle = p % 2 ? '#f08a1d' : '#ffd23e';
+        ctx.fillRect(cx + Math.cos(ang) * dist - ts * 0.05, cy + Math.sin(ang) * dist - ts * 0.05, ts * 0.1, ts * 0.1);
       }
     });
   };
