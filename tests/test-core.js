@@ -34,7 +34,10 @@ function mkState(placements, opts) {
 function unitIdAt(s, x, y) { const u = C.unitAt(s, x, y); return u ? u.id : null; }
 
 console.log('== 地图 ==');
-test('6 张地图展开为 8x8，且 180° 对称', function () {
+test('地图总数为 10 张', function () {
+  eq(D.MAPS.length, 10, '地图总数');
+});
+test('全部地图展开为 8x8，且 180° 对称', function () {
   D.MAPS.forEach(function (m) {
     const t = C.expandHalf(m.half);
     eq(t.length, 8, m.name + ' 行数');
