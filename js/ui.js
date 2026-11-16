@@ -746,6 +746,15 @@
   drawMenuArt();
   updateCampaignSub();
 
+  // 美术素材预加载：加载完成后重绘当前屏（未到前用代码手绘兜底）
+  if (window.IFSprites && IFSprites.loadAll) {
+    IFSprites.loadAll().then(function () {
+      if ($('screen-menu').classList.contains('active')) drawMenuArt();
+      if ($('screen-game').classList.contains('active')) renderAll();
+      if ($('screen-replay').classList.contains('active')) renderReplay();
+    });
+  }
+
   // 测试钩子（Playwright 用）
   window.IFUI = app;
   window.IFGame = { D: D, C: C, AI: AI, R: R, app: app };

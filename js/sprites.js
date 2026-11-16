@@ -1,15 +1,68 @@
-// 铁甲夹击：Q 版坦克像素精灵（IFSprites，原创）
-// 16×16 像素图，粗黑描边、亮色扁平。精灵朝上绘制；红方（上方阵营）
-// 垂直翻转，炮口朝下迎敌；蓝方炮口朝上。轻/中/重尺寸区分明显。
-// 光源在上方：红方翻转时只翻结构（炮管/轮廓/履带），光影像素
-// （W 高光 / L 亮色 / D 暗色）不翻转，两边光影方向保持一致。
-// 设计要点：黑描边只画外轮廓；炮塔用亮/暗主色区分层次，不用黑框，
-// 远看首先是红/蓝而不是黑；履带只占 1 像素宽。
+// 铁甲夹击：美术素材（IFSprites）
+// 坦克 / 地形 / 横幅使用 AI 生成的像素图片素材（assets/*.png，品红抠图）。
+// 红方炮口朝下、蓝方朝上——生成时已按朝向画好，不靠翻转区分。
+// 原 16×16 字符画代码手绘保留为图片未加载 / 加载失败时的兜底。
 (function (root) {
   'use strict';
 
   var S = {};
 
+  // ── 图片素材 ──
+  var BASE = 'assets/';
+  var FILES = {
+    'tank|light|1': 'tank-red-light.png',
+    'tank|medium|1': 'tank-red-medium.png',
+    'tank|heavy|1': 'tank-red-heavy.png',
+    'tank|light|2': 'tank-blue-light.png',
+    'tank|medium|2': 'tank-blue-medium.png',
+    'tank|heavy|2': 'tank-blue-heavy.png',
+    'tree': 'tree.png',
+    'mountain': 'mountain.png',
+    'city': 'city.png',
+    'grass-a': 'grass-a.png',
+    'grass-b': 'grass-b.png',
+    'river-a': 'river-a.png',
+    'river-b': 'river-b.png',
+    'banner': 'banner.png',
+  };
+  var imgs = {};
+  var loadPromise = null;
+
+  // 预加载全部素材；单张失败不阻塞（走兜底），全部 settled 后 resolve。
+  S.loadAll = function () {
+    if (loadPromise) return loadPromise;
+    if (typeof document === 'undefined' || typeof Image === 'undefined') {
+      loadPromise = Promise.resolve();
+      return loadPromise;
+    }
+    var keys = Object.keys(FILES);
+    var done = 0;
+    loadPromise = new Promise(function (resolve) {
+      if (!keys.length) { resolve(); return; }
+      keys.forEach(function (k) {
+        var img = new Image();
+        img.onload = function () { imgs[k] = img; if (++done === keys.length) resolve(); };
+        img.onerror = function () { if (++done === keys.length) resolve(); };
+        img.src = BASE + FILES[k];
+      });
+    });
+    return loadPromise;
+  };
+
+  // 取图（未加载完成返回 null，调用方用代码手绘兜底）
+  S.img = function (key) { return imgs[key] || null; };
+
+  // ── 坦克：图片优先，兜底代码手绘 ──
+  S.tank = function (type, owner) {
+    var img = imgs['tank|' + type + '|' + owner];
+    if (img) return img;
+    return codeTank(type, owner);
+  };
+
+  // 棋盘内占比（相对格边长）：生成图含长炮管，占比按整图计。
+  S.SCALE_IN_CELL = { light: 0.78, medium: 0.95, heavy: 1.0 };
+
+  // ── 兜底：原 16×16 字符画坦克 ──
   // 字符调色：K 描边 / B 炮管 / T 履带 / G 轮子 / W 高光 / M 主色 / D 深色 / L 亮色
   var COMMON = { K: '#16161f', B: '#565b66', T: '#23262e', G: '#8a8f9a', W: '#ffffff' };
   var SIDE = {
@@ -17,7 +70,6 @@
     2: { M: '#2f7de1', D: '#1d56b0', L: '#6db4ff' }, // 蓝方
   };
 
-  // 每行必须 16 字符（模块加载时自检，行长不对直接报错，不静默画错）。
   var MAPS = {
     light: [
       '................',
@@ -75,7 +127,6 @@
     ],
   };
 
-  // 校验像素图（开发期兜底：行长不对时控制台报错，不静默画错）。
   Object.keys(MAPS).forEach(function (k) {
     var m = MAPS[k];
     if (m.length !== 16) throw new Error('sprite ' + k + ': need 16 rows, got ' + m.length);
@@ -87,8 +138,8 @@
   var SCALE = 4; // 16×16 → 64×64 画布
   var cache = {};
 
-  // 取一辆坦克的精灵画布（朝向：蓝方朝上，红方朝下迎敌）。
-  S.tank = function (type, owner) {
+  function codeTank(type, owner) {
+    if (typeof document === 'undefined') return null;
     var key = type + '|' + owner;
     if (cache[key]) return cache[key];
     var map = MAPS[type] || MAPS.medium;
@@ -97,7 +148,6 @@
     var sp = SIDE[owner] || SIDE[1];
     pal.M = sp.M; pal.D = sp.D; pal.L = sp.L;
     var flip = (owner === 1); // 红方翻转，炮口朝下
-    // 先算 16×16 字符格：红方翻转结构，光影（W/L/D）不翻转。
     var grid = [], shade = [], x, y;
     for (y = 0; y < 16; y++) { grid[y] = []; for (x = 0; x < 16; x++) grid[y][x] = '.'; }
     for (y = 0; y < 16; y++) {
@@ -109,10 +159,6 @@
       }
     }
     if (flip) {
-      // 翻转后的光影先用车身色盖掉（翻转是一一映射，(x, 15-y) 处只可能
-      // 是该光影像素本身，盖掉不会误伤结构），再按不翻转位置重画光影。
-      // 重画只落在车身（M）上：重型坦克底部暗带与翻转后的炮管同行，
-      // 那里不是车身，跳过以免盖掉炮管（红方重型因此少一条底部暗带）。
       shade.forEach(function (p) { grid[15 - p.y][p.x] = 'M'; });
       shade.forEach(function (p) { if (grid[p.y][p.x] === 'M') grid[p.y][p.x] = p.ch; });
     }
@@ -130,10 +176,7 @@
     }
     cache[key] = cv;
     return cv;
-  };
-
-  // 棋盘内占比（相对格边长）：轻 / 中 / 重尺寸区分明显。
-  S.SCALE_IN_CELL = { light: 0.68, medium: 0.86, heavy: 0.98 };
+  }
 
   root.IFSprites = S;
 })(typeof window !== 'undefined' ? window : globalThis);

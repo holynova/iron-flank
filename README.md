@@ -36,7 +36,7 @@ js/data.js          数据表：兵种 / 地形 / 技能 / 地图 / 界面文字
 js/core.js          规则核心：掷骰 / 移动 / 集火 / 技能 / 胜负
 js/ai.js            启发式 AI：单步模拟 + 打分，三档参数集
 js/i18n.js          国际化壳层（中文源语言）
-js/sprites.js       原创 Q 版坦克像素精灵（16×16 像素图，轻/中/重，红蓝双色）
+js/sprites.js       美术素材加载（AI 生成像素图片 assets/*.png，品红抠图；代码手绘仅作兜底）
 js/render.js        Canvas 渲染：v2 卡通像素风（亮绿草地、粗黑网格、饱满地形、主菜单日落横幅）
 js/ui.js            界面控制器
 js/vendor/          潮汐战线美术模块（MIT，见 LICENSE-TIDEMARK.md；已不再加载，仅保留参考）
@@ -57,7 +57,7 @@ python3 -m http.server 8902   # 打开 http://127.0.0.1:8902/
 
 ## 归属
 
-- 架构借鉴 CocoSgt《潮汐战线》（MIT），原仓库 https://github.com/CocoSgt/dsh-game-tidemark ，许可证全文见 `LICENSE-TIDEMARK.md`。像素美术为本项目原创（v2 卡通像素风，2026-11-16 重做：坦克、地形、横幅全部代码重画，不再使用潮汐战线美术模块；`js/vendor/` 仅保留在仓库中作参考，不加载）。
+- 架构借鉴 CocoSgt《潮汐战线》（MIT），原仓库 https://github.com/CocoSgt/dsh-game-tidemark ，许可证全文见 `LICENSE-TIDEMARK.md`。像素美术为 AI 生成（2026-11-16 v3 彻底重做：6 辆坦克/大树/雪山/城市/草地/河流/菜单横幅全部改用生成图片素材，品红抠图转透明；代码手绘仅保留为加载失败兜底；`js/vendor/` 仅保留在仓库中作参考，不加载）。
 - 字体 Fusion Pixel，SIL Open Font License 1.1，见 `fonts/OFL.txt`。
 - 本项目其余代码 MIT 许可证，见 `LICENSE`。
 

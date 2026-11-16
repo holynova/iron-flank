@@ -1,6 +1,6 @@
-// 铁甲夹击：棋盘渲染（IFRender）— Canvas，v2 卡通像素风。
-// 地形与坦克全部原创代码像素画：亮绿草地、粗黑网格、Q 版坦克、
-// 饱满地形。不再使用潮汐战线美术模块（vendor 仅保留在仓库中，不加载）。
+// 铁甲夹击：棋盘渲染（IFRender）— Canvas。
+// 地形与坦克用 AI 生成的像素图片素材（assets/*.png）；代码手绘仅作兜底。
+// 不再使用潮汐战线美术模块（vendor 仅保留在仓库中，不加载）。
 (function (root) {
   'use strict';
   var D = root.IFData;
@@ -27,8 +27,28 @@
 
   function rect(c, x, y, w, h, col) { c.fillStyle = col; c.fillRect(x, y, w, h); }
 
-  // ── 地形（16×16 像素格内作画，u = ts/16）──
+  // ── 地形：图片素材优先（草地/河流砖平铺 + 精灵），缺图时走旧代码 ──
   function drawTerrain(c, t, x, y, ts, gx, gy) {
+    var parity = (gx + gy) % 2;
+    if (t === 'river') {
+      var rv = SP.img(parity ? 'river-b' : 'river-a');
+      if (rv) { c.drawImage(rv, x, y, ts, ts); return; }
+      drawTerrainLegacy(c, t, x, y, ts, gx, gy);
+      return;
+    }
+    var g = SP.img(parity ? 'grass-b' : 'grass-a');
+    if (!g) { drawTerrainLegacy(c, t, x, y, ts, gx, gy); return; }
+    c.drawImage(g, x, y, ts, ts);
+    if (t === 'plain') return;
+    var spr = t === 'forest' ? SP.img('tree')
+      : t === 'mountain' ? SP.img('mountain')
+      : t === 'city' ? SP.img('city') : null;
+    if (spr) { c.drawImage(spr, x, y, ts, ts); return; }
+    drawTerrainLegacy(c, t, x, y, ts, gx, gy);
+  }
+
+  // ── 地形兜底：原代码像素画（16×16 像素格内作画，u = ts/16）──
+  function drawTerrainLegacy(c, t, x, y, ts, gx, gy) {
     var col = TC[t] || TC.plain;
     rect(c, x, y, ts, ts, (gx + gy) % 2 ? col.alt : col.base);
     var h1 = hash(gx, gy, 1), h2 = hash(gx, gy, 2), h3 = hash(gx, gy, 3);
@@ -384,9 +404,20 @@
     canvas.style.width = cssW + 'px';
     canvas.style.height = cssH + 'px';
     var ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    var W = cssW, H = cssH, horizon = H * 0.58;
+    var b = SP.img('banner');
+    if (b) {
+      ctx.imageSmoothingEnabled = true; // 场景图平滑缩放
+      ctx.drawImage(b, 0, 0, cssW, cssH);
+      return;
+    }
+    drawBannerLegacy(ctx, cssW, cssH);
+  };
+
+  // 兜底：代码手绘日落河谷横幅（图片未加载时用）
+  function drawBannerLegacy(ctx, W, H) {
+    ctx.imageSmoothingEnabled = false;
+    var horizon = H * 0.58;
 
     // 日落天空
     var g = ctx.createLinearGradient(0, 0, 0, horizon);
