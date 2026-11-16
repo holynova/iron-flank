@@ -54,7 +54,7 @@
       view.lastMove = { from: st.snap.lastEvents.from, to: st.snap.lastEvents.to };
     }
     R.drawBoard($('replayBoard'), st.snap, view);
-    $('replayStepText').textContent = '第 ' + (idx + 1) + ' / ' + steps.length + ' 步 · 第 ' + st.snap.round + ' 回合';
+    $('replayStepText').textContent = '第 ' + (idx + 1) + ' / ' + steps.length + ' 步 · 第 ' + Math.min(st.snap.round, D.MAX_ROUNDS) + ' 回合';
     $('replayLabel').textContent = st.label;
     $('replayFirstBtn').disabled = idx <= 0;
     $('replayPrevBtn').disabled = idx <= 0;
