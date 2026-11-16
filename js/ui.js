@@ -453,7 +453,21 @@
     var secs = Math.round((Date.now() - app.stats.startedAt) / 1000);
     var mm = Math.floor(secs / 60), ss = secs % 60;
     var title, sub;
-    if (s.winner === null) {
+    if (s.endReason === 'roundLimit') {
+      var a0 = C.aliveUnits(s, 0).length, a1 = C.aliveUnits(s, 1).length;
+      if (s.winner === null) {
+        title = '平局';
+        sub = D.MAX_ROUNDS + ' 回合已满 · 坦克与击杀均持平';
+      } else {
+        var reason = a0 !== a1
+          ? '坦克 ' + a0 + ' 比 ' + a1
+          : '击杀 ' + s.kills[0] + ' 比 ' + s.kills[1];
+        sub = D.MAX_ROUNDS + ' 回合已满 · ' + reason;
+        title = app.mode === 'pve'
+          ? (s.winner === app.humanSide ? '你赢了！' : '电脑赢了')
+          : sideName(s.winner) + '获胜！';
+      }
+    } else if (s.winner === null) {
       title = '平局';
       sub = '双方都无路可走';
     } else if (app.mode === 'pve') {
@@ -471,7 +485,7 @@
     var rows = [
       ['对局模式', app.mode === 'pve' ? '人机对战 · ' + ({ easy: '新手', normal: '普通', hard: '高手' }[app.level]) : '双人对战'],
       ['地图', esc(app.stats.mapName)],
-      ['回合数', s.round + ' 回合'],
+      ['回合数', Math.min(s.round, D.MAX_ROUNDS) + ' 回合'],
       ['总步数', app.stats.moves + ' 步'],
       ['红方击杀', app.stats.kills[0] + ' 辆'],
       ['蓝方击杀', app.stats.kills[1] + ' 辆'],

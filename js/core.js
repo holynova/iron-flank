@@ -55,7 +55,9 @@
       pierce: [false, false], // 穿透：该方集火无视友军保护
       round: 1,
       moves: 0,
+      kills: [0, 0], // 每方累计击杀数（回合上限判胜负用）
       winner: null,
+      endReason: null, // 'elimination' 歼灭 | 'roundLimit' 回合上限
       lastEvents: null,
     };
     var id = 0;
@@ -245,6 +247,7 @@
     if (events.kills.length) {
       var gain = D.SKILLS[D.SIDES[atk].skill].gain;
       s.energy[atk] = Math.min(100, s.energy[atk] + gain * events.kills.length);
+      s.kills[atk] += events.kills.length;
     }
     return events;
   };
@@ -257,6 +260,15 @@
     s.shield[s.turn] = false;
     s.pierce[s.turn] = false;
     if (s.turn === s.first) s.round++;
+    // 回合上限：打满 MAX_ROUNDS 回合后，按剩余坦克数 → 击杀数判胜负，再相同判平局
+    if (s.phase === 'move' && s.round > D.MAX_ROUNDS) {
+      var a0 = C.aliveUnits(s, 0).length, a1 = C.aliveUnits(s, 1).length;
+      s.phase = 'over';
+      s.endReason = 'roundLimit';
+      if (a0 !== a1) s.winner = a0 > a1 ? 0 : 1;
+      else if (s.kills[0] !== s.kills[1]) s.winner = s.kills[0] > s.kills[1] ? 0 : 1;
+      else s.winner = null;
+    }
   }
 
   // 无路可走时跳过回合
@@ -296,6 +308,7 @@
     if (C.aliveUnits(s, other(u.side)).length <= 1) {
       s.winner = u.side;
       s.phase = 'over';
+      s.endReason = 'elimination';
       return ev;
     }
     endTurn(s);

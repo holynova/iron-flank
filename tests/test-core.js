@@ -387,10 +387,78 @@ test('AI 对 AI 20 局 soak：无异常、状态始终合法', function () {
       const ev = C.applyMove(s, mv.unitId, mv.path);
       if (ev.error) throw new Error('第 ' + g + ' 局出现非法 AI 移动：' + ev.error);
     }
-    if (s.phase === 'over') { wins++; ok(s.winner === 0 || s.winner === 1, '胜者合法'); }
-    else draws++;
+    if (s.phase === 'over') {
+      if (s.winner === 0 || s.winner === 1) wins++;
+      else { draws++; ok(s.endReason === 'roundLimit', '平局应来自回合上限'); }
+    }
+    else throw new Error('第 ' + g + ' 局 400 步未结束（回合上限应保证 200 步内结束）');
   }
-  console.log('     （20 局：' + wins + ' 胜负 / ' + draws + ' 平（400 步未分胜负））');
+  console.log('     （20 局：' + wins + ' 胜负 / ' + draws + ' 回合上限平局）');
+});
+
+console.log('== 回合上限 ==');
+// 构造终盘局面：红方上排、蓝方下排，互不集火；蓝方行动后回合数 +1
+function mkLateGame(redAlive, blueAlive, kills, round) {
+  const placements = [];
+  for (let i = 0; i < redAlive; i++) placements.push({ side: 0, x: i, y: 0 });
+  for (let i = 0; i < blueAlive; i++) placements.push({ side: 1, x: 7 - i, y: 7 });
+  const s = mkState(placements, { turn: 1 });
+  s.first = 0;
+  s.round = round;
+  if (kills) s.kills = kills.slice();
+  return s;
+}
+function blueCornerMove(s) {
+  // 蓝方 (7,7) 坦克走一步到 (7,6)，不产生集火
+  return C.applyMove(s, unitIdAt(s, 7, 7), [{ x: 7, y: 6 }]);
+}
+test('D.MAX_ROUNDS 常量为 100', function () {
+  eq(D.MAX_ROUNDS, 100, '回合上限');
+});
+test('开局 state 带 kills [0,0] 与 endReason null', function () {
+  const s = C.newGame('plain');
+  deepEq(s.kills, [0, 0], 'kills 初始');
+  eq(s.endReason, null, 'endReason 初始');
+});
+test('集火击杀计入 s.kills', function () {
+  const s = mkState([
+    { side: 0, x: 3, y: 3 }, { side: 0, x: 2, y: 2 }, { side: 1, x: 4, y: 3 }, { side: 1, x: 7, y: 7 },
+  ]);
+  const ev = C.applyMove(s, unitIdAt(s, 2, 2), [{ x: 2, y: 3 }]);
+  ok(!ev.error, '移动合法');
+  eq(ev.kills.length, 1, '击杀 1 辆');
+  deepEq(s.kills, [1, 0], '红方击杀数');
+});
+test('回合上限：剩余坦克多者胜', function () {
+  const s = mkLateGame(3, 2, [0, 0], 100);
+  const ev = blueCornerMove(s);
+  ok(!ev.error, '移动合法');
+  eq(s.round, 101, '回合数');
+  eq(s.phase, 'over', '应结束');
+  eq(s.winner, 0, '红方 3 辆胜蓝方 2 辆');
+  eq(s.endReason, 'roundLimit', '结束原因');
+});
+test('回合上限：坦克相同按击杀数', function () {
+  const s = mkLateGame(2, 2, [2, 1], 100);
+  blueCornerMove(s);
+  eq(s.phase, 'over', '应结束');
+  eq(s.winner, 0, '红方击杀 2 胜蓝方 1');
+  eq(s.endReason, 'roundLimit', '结束原因');
+});
+test('回合上限：坦克与击杀均相同判平局', function () {
+  const s = mkLateGame(2, 2, [1, 1], 100);
+  blueCornerMove(s);
+  eq(s.phase, 'over', '应结束');
+  eq(s.winner, null, '平局');
+  eq(s.endReason, 'roundLimit', '结束原因');
+});
+test('回合上限边界：第 100 回合未结束', function () {
+  const s = mkLateGame(2, 2, [0, 0], 99);
+  blueCornerMove(s);
+  eq(s.round, 100, '回合数');
+  eq(s.phase, 'move', '第 100 回合应继续');
+  eq(s.winner, null, '无胜者');
+  eq(s.endReason, null, '无结束原因');
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
