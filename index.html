@@ -13,10 +13,11 @@
   <!-- 主菜单 -->
   <section id="screen-menu" class="screen active">
     <div class="title-wrap">
-      <h1 class="game-title">铁甲夹击</h1>
+      <h1 class="game-title"><span class="t-logo">T</span>铁甲夹击</h1>
       <p class="game-subtitle">IRON FLANK · 二打一回合制坦克战棋</p>
     </div>
     <canvas id="banner"></canvas>
+    <div class="seg-label" style="margin-top:4px">游戏模式 / MODE SELECT</div>
     <div class="menu-btns">
       <button id="btnPve" class="pbtn primary">开始对战<span class="sub">单人 · 人机对战（你执蓝方）</span></button>
       <button id="btnPvp" class="pbtn blue">双人对战<span class="sub">本地双人 · 红蓝轮流操作</span></button>
@@ -41,7 +42,7 @@
       <button class="arrow" id="mapNext" aria-label="下一张地图">▶</button>
     </div>
 
-    <p class="credit">架构与像素美术基于 CocoSgt《潮汐战线》(MIT)<br>字体 Fusion Pixel (SIL OFL 1.1)</p>
+    <p class="credit">架构借鉴 CocoSgt《潮汐战线》(MIT) · 像素美术原创<br>字体 Fusion Pixel (SIL OFL 1.1)</p>
   </section>
 
   <!-- 对战 -->
@@ -55,7 +56,7 @@
     <div class="hint" id="hint">点选一辆己方坦克</div>
     <div class="controls">
       <div class="skill-wrap">
-        <button id="skillBtn" class="pbtn skill-btn yellow" disabled>指挥官技能</button>
+        <button id="skillBtn" class="pbtn skill-btn blue" disabled>指挥官技能</button>
         <div class="energy-bar"><div class="energy-fill" id="energyFill"></div></div>
         <div class="energy-text" id="energyText">能量 0/100</div>
       </div>
@@ -129,8 +130,7 @@
 <script src="js/core.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/i18n.js"></script>
-<script src="js/vendor/art.js"></script>
-<script src="js/vendor/art-units-heavy.js"></script>
+<script src="js/sprites.js"></script>
 <script src="js/render.js"></script>
 <script src="js/ui.js"></script>
 </body>
