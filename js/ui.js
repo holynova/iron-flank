@@ -16,6 +16,7 @@
     selected: null, path: [], targets: [],
     killCells: [], armorCells: [], lastMove: null,
     log: [], stats: null,
+    replaySteps: [], replayIdx: 0, // 复盘：每步 { label, snap } 快照
     busy: false, humanSide: 1,
     surrenderArm: false, surrenderTimer: null,
     passStreak: 0,
@@ -28,12 +29,37 @@
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
 
   function showScreen(name) {
-    ['menu', 'campaign', 'game', 'result'].forEach(function (n) {
+    ['menu', 'campaign', 'game', 'result', 'replay'].forEach(function (n) {
       $('screen-' + n).classList.toggle('active', n === name);
     });
     if (name === 'menu') { drawMenuArt(); updateCampaignSub(); }
     if (name === 'campaign') renderCampaignList();
     if (name === 'game') renderAll();
+    if (name === 'replay') renderReplay();
+  }
+
+  // ── 复盘 ──
+  function pushReplay(label) {
+    if (!app.state) return;
+    app.replaySteps.push({ label: label, snap: C.clone(app.state) });
+  }
+  function renderReplay() {
+    var steps = app.replaySteps;
+    if (!steps.length) return;
+    var idx = Math.max(0, Math.min(app.replayIdx, steps.length - 1));
+    app.replayIdx = idx;
+    var st = steps[idx];
+    var view = {};
+    if (st.snap.lastEvents && st.snap.lastEvents.from) {
+      view.lastMove = { from: st.snap.lastEvents.from, to: st.snap.lastEvents.to };
+    }
+    R.drawBoard($('replayBoard'), st.snap, view);
+    $('replayStepText').textContent = '第 ' + (idx + 1) + ' / ' + steps.length + ' 步 · 第 ' + st.snap.round + ' 回合';
+    $('replayLabel').textContent = st.label;
+    $('replayFirstBtn').disabled = idx <= 0;
+    $('replayPrevBtn').disabled = idx <= 0;
+    $('replayNextBtn').disabled = idx >= steps.length - 1;
+    $('replayLastBtn').disabled = idx >= steps.length - 1;
   }
 
   // ── 战役模式 ──
@@ -327,6 +353,10 @@
       app.lastMove = { from: ev.from, to: ev.to };
       app.passStreak = 0;
       logMove(ev);
+      var lbl = '第 ' + s.round + ' 回合 · ' + unitName(unit) + ' ' + fmtPos(ev.from.x, ev.from.y) + ' → ' + fmtPos(ev.to.x, ev.to.y);
+      if (ev.kills && ev.kills.length) lbl += ' · 击毁 ' + ev.kills.length + ' 辆';
+      if (ev.armorLost && ev.armorLost.length) lbl += ' · 打掉装甲';
+      pushReplay(lbl);
       var cells = [];
       (ev.kills || []).concat(ev.armorLost || []).forEach(function (id) {
         var v = C.unitById(s, id);
@@ -361,8 +391,10 @@
     if (!s || s.phase !== 'move') return;
     var guard = 0;
     while (!C.hasAnyMove(s, s.turn) && guard < 2) {
-      addLog(sideName(s.turn) + ' 无路可走，跳过回合');
+      var passer = s.turn;
+      addLog(sideName(passer) + ' 无路可走，跳过回合');
       C.passTurn(s);
+      pushReplay(sideName(passer) + ' 无路可走，跳过回合');
       app.passStreak++;
       guard++;
       if (app.passStreak >= 2) {
@@ -391,6 +423,7 @@
         app.stats.skills[side]++;
         var sk = D.SKILLS[D.SIDES[side].skill];
         addLog('✨ ' + sideName(side) + ' 释放「' + sk.name + '」：' + sk.desc, 'ls');
+        pushReplay('✨ ' + sideName(side) + ' 释放「' + sk.name + '」');
         sfx('skill');
         afterSkill = playSkillAnim(side);
       }
@@ -401,6 +434,7 @@
           app.busy = false;
           C.passTurn(s);
           addLog(sideName(side) + ' 无路可走，跳过回合');
+          pushReplay(sideName(side) + ' 无路可走，跳过回合');
           renderAll();
           postTurn();
           return;
@@ -431,6 +465,7 @@
     app.stats.skills[side]++;
     var sk = D.SKILLS[D.SIDES[side].skill];
     addLog('✨ ' + sideName(side) + ' 释放「' + sk.name + '」：' + sk.desc, 'ls');
+    pushReplay('✨ ' + sideName(side) + ' 释放「' + sk.name + '」');
     sfx('skill');
     playSkillAnim(side).then(renderAll);
   }
@@ -479,6 +514,8 @@
       addLog('⚔️ 战役第 ' + (app.campaign + 1) + ' 关：' + esc(lv.name) + '（' + LEVEL_NAMES[lv.level] + '）');
     }
     addLog('🎲 掷骰：红 ' + app.dice.red + ' 点，蓝 ' + app.dice.blue + ' 点，' + sideName(app.dice.first) + '先手');
+    app.replaySteps = [{ label: '开局 · ' + sideName(app.dice.first) + '先手', snap: C.clone(s) }];
+    app.replayIdx = 0;
     setHint('点选一辆己方坦克');
     renderAll();
     postTurn();
@@ -492,6 +529,7 @@
     app.selected = null; app.path = []; app.targets = [];
     app.killCells = []; app.armorCells = []; app.lastMove = null;
     app.log = []; app.busy = false; app.passStreak = 0;
+    app.replaySteps = []; app.replayIdx = 0;
     app.stats = { kills: [0, 0], moves: 0, skills: [0, 0], startedAt: Date.now(), mapName: map.name };
     app.surrenderArm = false;
     $('surrenderBtn').textContent = '认输';
@@ -579,6 +617,7 @@
       next.style.display = 'none'; camp.style.display = 'none'; again.style.display = '';
       again.textContent = '再来一局';
     }
+    $('reviewBtn').style.display = app.replaySteps.length > 1 ? '' : 'none';
     showScreen('result');
   }
 
@@ -686,12 +725,19 @@
     $('diceStartBtn').addEventListener('click', startBattle);
     $('againBtn').addEventListener('click', function () { newGame(app.mode); });
     $('homeBtn').addEventListener('click', function () { showScreen('menu'); });
+    $('reviewBtn').addEventListener('click', function () { app.replayIdx = 0; showScreen('replay'); });
+    $('replayFirstBtn').addEventListener('click', function () { app.replayIdx = 0; renderReplay(); });
+    $('replayPrevBtn').addEventListener('click', function () { app.replayIdx--; renderReplay(); });
+    $('replayNextBtn').addEventListener('click', function () { app.replayIdx++; renderReplay(); });
+    $('replayLastBtn').addEventListener('click', function () { app.replayIdx = app.replaySteps.length - 1; renderReplay(); });
+    $('replayBackBtn').addEventListener('click', function () { showScreen('result'); });
     var rt;
     window.addEventListener('resize', function () {
       clearTimeout(rt);
       rt = setTimeout(function () {
         if ($('screen-menu').classList.contains('active')) drawMenuArt();
         if ($('screen-game').classList.contains('active')) renderAll();
+        if ($('screen-replay').classList.contains('active')) renderReplay();
       }, 150);
     });
   }

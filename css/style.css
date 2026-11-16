@@ -136,7 +136,7 @@ button { font-family: inherit; cursor: pointer; }
   padding: 0;
   box-shadow: 0 6px 0 rgba(0,0,0,0.35);
 }
-#board { width: 100%; display: block; image-rendering: pixelated; touch-action: manipulation; }
+#board, #replayBoard { width: 100%; display: block; image-rendering: pixelated; touch-action: manipulation; }
 .hint { text-align: center; font-size: 14px; color: var(--ink-dim); min-height: 20px; margin: 10px 0 4px; }
 .hint strong { color: var(--yellow); }
 
@@ -144,6 +144,7 @@ button { font-family: inherit; cursor: pointer; }
 .controls { display: flex; gap: 8px; margin-top: 10px; }
 .controls .pbtn { width: auto; flex: 1; font-size: 16px; padding: 11px 6px; }
 .controls .pbtn.sound { flex: 0 0 54px; font-size: 20px; }
+.controls .pbtn.nav { font-size: 14px; padding: 11px 2px; }
 .controls .skill-wrap { flex: 1.6; }
 .controls .skill-btn { width: 100%; position: relative; overflow: hidden; }
 .energy-bar { height: 6px; background: #141a29; border: 2px solid var(--line); border-radius: 4px; margin-top: 6px; overflow: hidden; }

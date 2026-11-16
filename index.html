@@ -92,10 +92,28 @@
       <div class="result-btns">
         <button id="againBtn" class="pbtn primary">再来一局</button>
         <button id="nextLevelBtn" class="pbtn primary" style="display:none">下一关</button>
+        <button id="reviewBtn" class="pbtn" style="display:none">查看复盘</button>
         <button id="campaignBtn" class="pbtn" style="display:none">返回战役</button>
         <button id="homeBtn" class="pbtn">回标题</button>
       </div>
     </div>
+  </section>
+
+  <!-- 复盘 -->
+  <section id="screen-replay" class="screen">
+    <div class="campaign-head">
+      <h2>复盘</h2>
+      <p id="replayStepText"></p>
+    </div>
+    <div class="board-frame"><canvas id="replayBoard"></canvas></div>
+    <div class="hint" id="replayLabel"></div>
+    <div class="controls" style="margin-top:12px">
+      <button id="replayFirstBtn" class="pbtn ghost nav">首步</button>
+      <button id="replayPrevBtn" class="pbtn ghost nav">◀ 上一步</button>
+      <button id="replayNextBtn" class="pbtn ghost nav">下一步 ▶</button>
+      <button id="replayLastBtn" class="pbtn ghost nav">末步</button>
+    </div>
+    <button id="replayBackBtn" class="pbtn" style="margin-top:12px">返回结算</button>
   </section>
 
 </div>
