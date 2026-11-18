@@ -1,25 +1,25 @@
+<p align="right"><a href="README.en.md">English</a></p>
+
 <p align="center">
   <img src="./assets/readme/hero.svg" width="100%" alt="铁甲夹击 Iron Flank — 二打一回合制坦克战棋：8×8 棋盘上两辆蓝坦克夹住一辆红坦克，红坦克被集火击毁">
 </p>
 
 <p align="center">
-  <a href="https://holynova.github.io/iron-flank/">▶ 在线玩 Play Online</a>
+  <a href="https://holynova.github.io/iron-flank/">▶ 在线玩</a>
   ·
   <a href="https://github.com/holynova/iron-flank">GitHub 仓库</a>
 </p>
 
 铁甲夹击是一款二打一回合制坦克战棋：在 8×8 棋盘上，红蓝双方各 6 辆坦克轮流移动；当两辆己方坦克与一辆敌方坦克连成一线，敌方即被集火击毁。先把对方消灭到只剩 1 辆者获胜。移动端优先，竖屏可玩，零构建，纯 JS + Canvas。
 
-Iron Flank is a turn-based tank tactics game built around a "two-on-one" focus-fire rule: on an 8×8 board, two of your tanks lining up with one enemy destroys it. First side to reduce the enemy to a single tank wins. Mobile-first, zero build, pure JavaScript + Canvas.
-
-## 截图 / Screenshots
+## 截图
 
 <p align="center">
   <img src="./assets/readme/screenshot-board.png" width="300" alt="对战棋盘：8×8 草地棋盘，红蓝像素坦克对峙，轮到蓝方行动">
   <img src="./assets/readme/screenshot-menu.png" width="300" alt="主菜单：铁甲夹击标题、日落横幅，开始对战、双人对战、战役模式三个选项">
 </p>
 
-## 玩法 / How to Play
+## 玩法
 
 - **移动**：每回合移动一辆坦克，正交方向走 1 格；轻型坦克可走 2 格（第二步可停）。山地、河流不可进入。
 - **二打一集火**：坦克落点后，扫描所在行与列。连续三格出现 `[我][我][敌]` 或 `[敌][我][我]`，最外侧的敌军即被击毁。行列独立结算，一次移动最多击毁两辆。
@@ -32,7 +32,7 @@ Iron Flank is a turn-based tank tactics game built around a "two-on-one" focus-f
   - 蓝方「穿透」：己方集火无视友军保护。
 - **胜负**：敌方剩 ≤1 辆获胜；100 回合未分胜负按剩余坦克与击杀数判定；双方都无路可走时平局。开局掷骰定先手。
 
-## 模式与内容 / Modes & Content
+## 模式与内容
 
 - **人机对战**：三档难度（新手 / 普通 / 高手），启发式 AI；你执蓝方。
 - **本地双人**：同一设备轮流操作。
@@ -40,7 +40,7 @@ Iron Flank is a turn-based tank tactics game built around a "two-on-one" focus-f
 - **10 张地图**：平原遭遇、森林夹击、断河防线、群山隘口、双城对峙、混合战场、纵贯河道、城市巷战、双峰夹道、森林伏击。
 - **3 兵种**（轻型 2 步 / 中型 / 重型 2 血）、**5 地形**（平原 / 森林 / 山地 / 河流 / 城市）、战报复盘、结算统计。
 
-## 本地运行 / Run Locally
+## 本地运行
 
 零构建，直接打开 `index.html` 即可玩；或起一个静态服务器：
 
@@ -55,7 +55,7 @@ python3 -m http.server 8000
 node tests/test-core.js
 ```
 
-## 技术 / Tech
+## 技术
 
 - 纯 JS + Canvas，零构建、零依赖；移动端优先，竖屏 390px 可玩。
 - 规则核心是纯函数（`js/core.js`），可在 Node 跑测试与模拟；数据驱动（`js/data.js`）；单步启发式 AI（`js/ai.js`，非 Minimax）。
@@ -73,16 +73,6 @@ js/ui.js            界面控制器
 tests/              Node 测试与 AI 对局 soak
 ```
 
-## English
-
-**Iron Flank** is a turn-based tank tactics game about focus fire: move one tank per turn on an 8×8 board; when two of your tanks end up in a line with an enemy (`[me][me][foe]` or `[foe][me][me]`), the outermost enemy is destroyed. Reduce the enemy to one tank to win.
-
-- **Focus fire, with exceptions**: adjacent friendly cover blocks it; lines with 5+ tanks are exempt; tanks on forest/city tiles are immune; heavy tanks survive the first hit with armor.
-- **Commander skills**: every kill grants +50 energy; at 100, Red's Iron Wall makes your army immune to focus fire, Blue's Pierce ignores friendly cover.
-- **Modes**: vs AI (3 difficulties), local 2-player, and an 8-level campaign with progressive difficulty. 10 maps, 3 unit types, 5 terrain types, battle log with step-by-step replay.
-- **Run it**: open `index.html` — no build step. Rule tests: `node tests/test-core.js` (46 cases).
-- **Tech**: pure JavaScript + Canvas, zero dependencies. Architecture and pixel art based on CocoSgt's Tidemark (MIT). Font: Fusion Pixel (SIL OFL 1.1).
-
-## 许可 / License
+## 许可
 
 MIT，见 `LICENSE`。
